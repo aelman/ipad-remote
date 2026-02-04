@@ -1,0 +1,6 @@
+# System packages required (install with apt):
+# - python3-dbus
+# - python3-gi
+
+# Pip packages
+python-xlib>=0.33

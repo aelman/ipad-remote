@@ -1,0 +1,65 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start UxPlay",
+            "type": "shell",
+            "command": "uxplay -n 'iPad Remote Display' -nc",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "UxPlay"
+                }
+            }
+        },
+        {
+            "label": "Run iPad Remote (sudo)",
+            "type": "shell",
+            "command": "sudo ${workspaceFolder}/venv/bin/python ${workspaceFolder}/main.py",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": [],
+            "dependsOn": "Start UxPlay",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Run with UxPlay (full setup)",
+            "type": "shell",
+            "command": "sudo ${workspaceFolder}/run.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop UxPlay",
+            "type": "shell",
+            "command": "pkill -f uxplay || true",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

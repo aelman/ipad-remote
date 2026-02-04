@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "iPad Remote (with UxPlay)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "sudo": true,
+            "python": "${workspaceFolder}/venv/bin/python",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Start UxPlay",
+            "postDebugTask": "Stop UxPlay"
+        },
+        {
+            "name": "iPad Remote (HID only)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "sudo": true,
+            "python": "${workspaceFolder}/venv/bin/python",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Test Input Capture",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/input_capture.py",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

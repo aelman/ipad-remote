@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=iPad Remote
+Comment=Control your iPad with your laptop's keyboard and mouse
+Exec=pkexec /home/aelman/ipad-remote/ipad-remote-launcher
+Icon=input-tablet
+Terminal=false
+Type=Application
+Categories=Utility;RemoteAccess;
+Keywords=ipad;remote;bluetooth;airplay;
+StartupNotify=true

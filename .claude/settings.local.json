@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bluetoothctl:*)",
+      "Bash(systemctl is-active:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(dpkg:*)",
+      "Bash(pacman -Q:*)",
+      "Bash(apt-cache search:*)",
+      "Bash(sudo hciconfig:*)",
+      "Bash(sdptool --help:*)",
+      "Bash(ss:*)",
+      "Bash(netstat:*)",
+      "Bash(pip3 show:*)",
+      "Bash(pgrep:*)",
+      "Bash(pkill:*)",
+      "Bash(timeout 10 uxplay:*)",
+      "Bash(gst-inspect-1.0:*)",
+      "Bash(./venv/bin/python:*)"
+    ]
+  }
+}
