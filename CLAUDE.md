@@ -47,8 +47,6 @@ Root privileges are required for Bluetooth HID operations. The launcher uses pol
 
 **input_capture.py** - Captures keyboard/mouse via X11 RECORD extension. Converts X11 keysyms to USB HID usage codes. Only forwards input when UxPlay window is focused. Exit hotkey: Ctrl+Alt+Q.
 
-**bt_hid_profile.py** - Abandoned classic Bluetooth HID implementation (L2CAP PSM 17/19 ports conflict with BlueZ).
-
 ## Key Technical Details
 
 - Uses BLE HID (HoGP) instead of classic Bluetooth HID for iOS compatibility
