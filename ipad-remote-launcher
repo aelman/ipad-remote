@@ -7,46 +7,95 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Debug: log who is running and environment
+echo "Launcher running as user: $(whoami), UID: $UID" >> /tmp/ipad-remote-debug.log
+echo "DISPLAY=$DISPLAY, XAUTHORITY=$XAUTHORITY" >> /tmp/ipad-remote-debug.log
+
+# Don't run as root - we need user's display access
+if [ "$UID" -eq 0 ]; then
+    echo "ERROR: Don't run this launcher as root or with sudo." >&2
+    echo "Run it directly: ./ipad-remote-launcher" >&2
+    echo "Or use the desktop launcher." >&2
+    zenity --error --text="Don't run iPad Remote as root.\n\nUse the desktop launcher or run without sudo." 2>/dev/null || true
+    exit 1
+fi
+
 # PIDs for cleanup
 UXPLAY_PID=""
 HID_PID=""
+DIALOG_PID=""
 
 cleanup() {
-    echo "Shutting down iPad Remote..."
+    echo "Cleanup called" >> /tmp/ipad-remote-debug.log
 
-    # Kill HID service
-    if [ -n "$HID_PID" ] && kill -0 "$HID_PID" 2>/dev/null; then
-        kill "$HID_PID" 2>/dev/null || true
-        wait "$HID_PID" 2>/dev/null || true
+    # Kill waiting dialog if still running
+    if [ -n "$DIALOG_PID" ] && kill -0 "$DIALOG_PID" 2>/dev/null; then
+        kill "$DIALOG_PID" 2>/dev/null || true
     fi
+
+    # Signal HID service to stop via stop file (runs as root, can't kill directly)
+    touch /tmp/ipad-remote-stop
+    # Give it a moment to notice the file and shut down gracefully
+    sleep 1
+    # Clean up the stop file
+    rm -f /tmp/ipad-remote-stop
 
     # Kill UxPlay
+    pkill -f "uxplay.*iPad Remote" 2>/dev/null || true
     if [ -n "$UXPLAY_PID" ] && kill -0 "$UXPLAY_PID" 2>/dev/null; then
         kill "$UXPLAY_PID" 2>/dev/null || true
-        wait "$UXPLAY_PID" 2>/dev/null || true
     fi
 
+    echo "Cleanup finished" >> /tmp/ipad-remote-debug.log
     exit 0
 }
 
-trap cleanup SIGINT SIGTERM EXIT
+trap cleanup SIGINT SIGTERM SIGHUP EXIT
 
-# Start UxPlay
+# Start UxPlay (runs as current user, no elevation needed)
+echo "Starting UxPlay..." >> /tmp/ipad-remote-debug.log
 uxplay -n "iPad Remote Display" -nc &
 UXPLAY_PID=$!
+echo "UxPlay PID: $UXPLAY_PID" >> /tmp/ipad-remote-debug.log
 
 sleep 1
 
 if ! kill -0 "$UXPLAY_PID" 2>/dev/null; then
-    echo "ERROR: Failed to start UxPlay"
+    echo "UxPlay failed to start" >> /tmp/ipad-remote-debug.log
+    zenity --error --text="Failed to start UxPlay" 2>/dev/null || echo "ERROR: Failed to start UxPlay"
     exit 1
 fi
+echo "UxPlay running" >> /tmp/ipad-remote-debug.log
 
-# Start HID service (needs root for Bluetooth)
-source "$SCRIPT_DIR/venv/bin/activate"
-python3 "$SCRIPT_DIR/main.py" &
+# Use venv python for our scripts
+PYTHON="$SCRIPT_DIR/venv/bin/python"
+
+# Clear any snap-related library paths that might cause conflicts with GTK
+unset GTK_PATH GTK_EXE_PREFIX GTK_DATA_PREFIX
+unset LOCPATH GIO_MODULE_DIR
+
+# Show waiting dialog until iPad connects (optional - may fail in some environments)
+# Use clean environment to avoid snap library conflicts, but keep essential vars
+echo "Starting waiting dialog..." >> /tmp/ipad-remote-debug.log
+env -i \
+    HOME="$HOME" \
+    DISPLAY="$DISPLAY" \
+    XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}" \
+    XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+    DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" \
+    PATH="/usr/bin:/bin" \
+    "$PYTHON" "$SCRIPT_DIR/waiting_dialog.py" &
+DIALOG_PID=$!
+echo "Dialog PID: $DIALOG_PID" >> /tmp/ipad-remote-debug.log
+
+# Start HID service with elevated privileges (needs root for Bluetooth)
+echo "Starting HID service with pkexec..." >> /tmp/ipad-remote-debug.log
+pkexec "$PYTHON" "$SCRIPT_DIR/main.py" &
 HID_PID=$!
+echo "HID PID: $HID_PID" >> /tmp/ipad-remote-debug.log
 
-# Wait for UxPlay to exit (user closes the window)
-# When UxPlay exits, cleanup will be triggered
-wait "$UXPLAY_PID" 2>/dev/null || true
+# Wait for UxPlay window to be closed by user
+# (UxPlay process stays running after window close, so we monitor the window instead)
+echo "Starting monitor..." >> /tmp/ipad-remote-debug.log
+"$PYTHON" "$SCRIPT_DIR/monitor_uxplay_window.py"
+echo "Monitor exited with code: $?" >> /tmp/ipad-remote-debug.log

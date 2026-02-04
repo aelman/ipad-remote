@@ -86,12 +86,39 @@ MODIFIER_KEYSYMS = {
     XK.XK_Meta_R: MODIFIER_RIGHT_GUI,
 }
 
+# Direct keysym to HID mapping for keys where keysym_to_string may not work
+KEYSYM_TO_HID = {
+    XK.XK_Delete: 0x4C,
+    XK.XK_BackSpace: 0x2A,
+    XK.XK_Return: 0x28,
+    XK.XK_Escape: 0x29,
+    XK.XK_Tab: 0x2B,
+    XK.XK_space: 0x2C,
+    XK.XK_Insert: 0x49,
+    XK.XK_Home: 0x4A,
+    XK.XK_Prior: 0x4B,  # Page Up
+    XK.XK_End: 0x4D,
+    XK.XK_Next: 0x4E,   # Page Down
+    XK.XK_Right: 0x4F,
+    XK.XK_Left: 0x50,
+    XK.XK_Down: 0x51,
+    XK.XK_Up: 0x52,
+    XK.XK_Caps_Lock: 0x39,
+}
+
 
 class InputCapture:
     """Captures keyboard and mouse input and converts to HID reports."""
 
-    # Window name patterns to match for UxPlay
-    UXPLAY_WINDOW_PATTERNS = ['uxplay', 'ipad remote', 'airplay']
+    # Window name patterns to match for UxPlay (including GStreamer video sinks)
+    UXPLAY_WINDOW_PATTERNS = [
+        'uxplay',
+        'gst',              # GStreamer windows
+        'autovideosink',    # GStreamer auto sink
+        'xvimagesink',      # X video image sink
+        'ximagesink',       # X image sink
+        'glimagesink',      # OpenGL sink
+    ]
 
     def __init__(
         self,
@@ -272,8 +299,50 @@ class InputCapture:
             pass
         return None
 
+    def _is_cursor_in_content_area(self) -> bool:
+        """Check if cursor is in the content area of UxPlay window (not title bar)."""
+        if not self._uxplay_window or not self._cursor_display:
+            return False
+
+        try:
+            # Get cursor position
+            root = self._cursor_display.screen().root
+            pointer = root.query_pointer()
+            cursor_x, cursor_y = pointer.root_x, pointer.root_y
+
+            # Get window geometry
+            geom = self._uxplay_window.get_geometry()
+
+            # Translate window coordinates to screen coordinates
+            coords = self._uxplay_window.translate_coords(root, 0, 0)
+            win_x = -coords.x  # translate_coords gives offset from window to root
+            win_y = -coords.y
+
+            # Try to get frame extents (title bar height)
+            title_bar_height = 0
+            try:
+                atom = self._cursor_display.intern_atom('_NET_FRAME_EXTENTS')
+                extents = self._uxplay_window.get_full_property(atom, 0)
+                if extents and extents.value:
+                    # Format: [left, right, top, bottom]
+                    title_bar_height = extents.value[2]  # top extent is title bar
+            except Exception:
+                # Default title bar height if we can't get it
+                title_bar_height = 30
+
+            # Check if cursor is within content area (below title bar)
+            content_top = win_y + title_bar_height
+            content_bottom = win_y + geom.height + title_bar_height
+            content_left = win_x
+            content_right = win_x + geom.width
+
+            return (content_left <= cursor_x < content_right and
+                    content_top <= cursor_y < content_bottom)
+        except Exception:
+            return False
+
     def _update_cursor_visibility(self):
-        """Update cursor visibility based on focus, throttled."""
+        """Update cursor visibility based on focus."""
         now = time.time()
         # Only check every 100ms
         if now - self._last_focus_check < 0.1:
@@ -281,6 +350,7 @@ class InputCapture:
         self._last_focus_check = now
 
         focused = self._is_uxplay_focused()
+
         if focused != self._last_focus_state:
             self._last_focus_state = focused
             if focused:
@@ -366,11 +436,18 @@ class InputCapture:
 
     def _keysym_to_hid(self, keysym: int) -> Optional[int]:
         """Convert X11 keysym to HID usage code."""
-        # Get key name from keysym
-        key_name = XK.keysym_to_string(keysym)
-        if key_name:
-            key_name = key_name.lower()
-            return KEY_CODES.get(key_name)
+        # Check direct keysym mapping first (for special keys)
+        if keysym in KEYSYM_TO_HID:
+            return KEYSYM_TO_HID[keysym]
+
+        # Fall back to string-based lookup
+        try:
+            key_name = XK.keysym_to_string(keysym)
+            if key_name:
+                key_name = key_name.lower()
+                return KEY_CODES.get(key_name)
+        except Exception:
+            pass
         return None
 
     def _is_modifier(self, keysym: int) -> bool:
@@ -459,13 +536,13 @@ class InputCapture:
                     self.mouse_buttons |= 0x04
                 elif button == 3:  # Right
                     self.mouse_buttons |= 0x02
-                elif button == 4:  # Scroll up
-                    if self._is_uxplay_focused():
-                        self.mouse_callback(self.mouse_buttons, 0, 0, 3)
-                    continue
-                elif button == 5:  # Scroll down
+                elif button == 4:  # Scroll up (natural scrolling: content moves down)
                     if self._is_uxplay_focused():
                         self.mouse_callback(self.mouse_buttons, 0, 0, -3)
+                    continue
+                elif button == 5:  # Scroll down (natural scrolling: content moves up)
+                    if self._is_uxplay_focused():
+                        self.mouse_callback(self.mouse_buttons, 0, 0, 3)
                     continue
                 if self._is_uxplay_focused():
                     self.mouse_callback(self.mouse_buttons, 0, 0, 0)

@@ -17,7 +17,10 @@
       "Bash(pkill:*)",
       "Bash(timeout 10 uxplay:*)",
       "Bash(gst-inspect-1.0:*)",
-      "Bash(./venv/bin/python:*)"
+      "Bash(./venv/bin/python:*)",
+      "Bash(# Check all locations for ipad-remote desktop files find /usr/share/applications /usr/local/share/applications ~/.local/share/applications -name \"\"*ipad*\"\" # Also check the Exec line specifically grep -l \"\"ipad-remote\"\" /usr/share/applications/*.desktop ~/.local/share/applications/*.desktop)",
+      "Bash(# Check for any pkexec-related files find /usr/share/polkit-1 -name \"\"*ipad*\"\" # Check what actual policy matches pkexec for this script pkaction --verbose)",
+      "Bash(update-desktop-database:*)"
     ]
   }
 }

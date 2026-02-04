@@ -12,17 +12,28 @@ iPad Remote exposes a Linux laptop as a Bluetooth LE HID device (keyboard + mous
 # First-time setup (installs system packages, creates venv)
 sudo ./setup.sh
 
-# Run full app (UxPlay + BLE HID)
-sudo ./run.sh
+# Install desktop integration (adds app to GNOME launcher)
+./install.sh
 
-# Run only the BLE HID service
+# Run full app (UxPlay + BLE HID + waiting dialog)
+./ipad-remote-launcher
+
+# Run only the BLE HID service (requires sudo)
 sudo venv/bin/python main.py
 
 # Test input capture (no sudo needed)
 venv/bin/python input_capture.py
 ```
 
-Root privileges are required for Bluetooth HID operations.
+Root privileges are required for Bluetooth HID operations. The launcher uses polkit (pkexec) for privilege elevation.
+
+## Desktop Integration
+
+- **ipad-remote.desktop** - GNOME application entry
+- **ipad-remote-launcher** - Main launcher script that orchestrates UxPlay, waiting dialog, HID service, and window monitoring
+- **com.github.ipad-remote.policy** - Polkit policy for privilege elevation
+- **waiting_dialog.py** - GTK dialog showing connection instructions until iPad connects
+- **monitor_uxplay_window.py** - Monitors UxPlay window and triggers cleanup when closed
 
 ## Architecture
 

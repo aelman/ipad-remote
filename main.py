@@ -20,8 +20,12 @@ import sys
 import signal
 import asyncio
 import argparse
+import os
 from ble_hid_profile import BLEHIDProfile
 from input_capture import InputCapture
+
+# Stop file - launcher creates this to signal shutdown
+STOP_FILE = "/tmp/ipad-remote-stop"
 
 
 class IPadRemote:
@@ -52,6 +56,10 @@ class IPadRemote:
 
     async def run(self):
         """Run the iPad Remote service."""
+        # Remove any stale stop file from previous run
+        if os.path.exists(STOP_FILE):
+            os.remove(STOP_FILE)
+
         print("=" * 60)
         print("iPad Remote - BLE HID Controller")
         print("=" * 60)
@@ -93,8 +101,11 @@ class IPadRemote:
             self.running = True
             self.input_capture.start()
 
-            # Keep running until interrupted
+            # Keep running until interrupted or stop file appears
             while self.running:
+                if os.path.exists(STOP_FILE):
+                    print("\nStop signal received from launcher")
+                    break
                 await asyncio.sleep(0.1)
 
         except Exception as e:
